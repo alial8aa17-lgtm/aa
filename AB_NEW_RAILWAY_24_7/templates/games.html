@@ -1,0 +1,18 @@
+{% extends 'base.html' %}{% block content %}
+<header class="page-head"><a href="/chat">‹</a><div><h1>الألعاب</h1><p>دز تحدي للكروب وأول شخص يضغط يدخل وياك</p></div><span>🎮</span></header>
+<section class="simple-games-grid">
+{% for kind,label,icon,desc in [
+('snakes','حيّة ودرج','🐍🪜','ارمِ الزهر وتحرك. الدرج يصعدك والحيّة تنزلك. أول واحد يوصل 100 يفوز'),
+('xo2','X/O','❌⭕','حط X أو O بدورك. أول واحد يسوي 3 علامات بخط واحد يفوز'),
+('rps','حجر ورقة مقص','✊✋✌️','اختيار سري لكل لاعب. حجر يغلب مقص، مقص يغلب ورقة، ورقة تغلب حجر'),
+('guess','خمن الرقم','🔢','خمن رقم من 1 إلى 100. نكلك أعلى أو أوطى لحد ما واحد يصيبه'),
+('reaction','أسرع ضغطة','⚡','انتظر الزر يصير أخضر وبعدها اضغط. الضغط قبل الإشارة يعاقبك'),
+('colors','اختار اللون','🎨','يظهر اسم لون وتختار المربع الملون المطابق. أول واحد يجمع 5 نقاط يفوز'),
+('memory','ذاكرة البطاقات','🃏','افتح بطاقتين بدورك وحاول تطابق الرموز. صاحب أكثر أزواج يفوز')
+] %}
+<form method="post" action="/table-game/create/{{kind}}"><button class="simple-game-card"><span>{{icon}}</span><b>{{label}}</b><small>{{desc}}</small><em>طريقة اللعب ↑</em><i>دز تحدي</i></button></form>
+{% endfor %}
+<a class="simple-game-card quiz-link" href="/quiz"><span>🏆</span><b>المسابقة</b><small>الأسئلة اللي ترفعها إنت</small><i>فتح</i></a>
+</section>
+<nav class="bottom-nav"><a class="nav-item" href="/chat"><span>●</span><small>الدردشة</small></a><a class="nav-item active" href="/games"><span>🎮</span><small>الألعاب</small></a><a class="nav-item" href="/quiz"><span>♛</span><small>المسابقة</small></a><a class="nav-item" href="/profile"><span>◉</span><small>حسابي</small></a></nav>
+{% endblock %}

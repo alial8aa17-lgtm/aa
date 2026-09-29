@@ -1,0 +1,3 @@
+{% extends 'base.html' %}{% block content %}{% set ap=appearance(u) %}
+<header class="page-head"><a href="/chat">‹</a><div><h1>{{shown_name(u)}}</h1><p>@{{u.username}}</p></div></header>
+<section class="profile-hero ultimate-profile"><div class="equipped-avatar">{% if ap.frame %}<img class="avatar-frame" src="{{ap.frame}}">{% endif %}<img class="avatar-main" src="{{ap.avatar}}">{% if ap.crown %}<img class="avatar-crown" src="{{ap.crown}}">{% endif %}</div><h2>{{shown_name(u)}}</h2><b>{{u.rank}}</b><p>{{u.bio or 'عضو في اب نيو'}}</p><p>{{u.points}} نقطة</p><a class="primary linkbtn" href="/dm/{{u.id}}">مراسلة خاصة</a></section>{% endblock %}

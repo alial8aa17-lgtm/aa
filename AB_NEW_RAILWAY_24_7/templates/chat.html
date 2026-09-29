@@ -1,0 +1,51 @@
+{% extends 'base.html' %}{% block content %}
+<header class="chat-head"><img class="head-avatar" src="{{url_for('static',filename='img/logo.svg')}}"><div class="head-copy"><h1>القروب العام</h1><p><i class="online"></i>{{users|length}} عضو · متصل الآن</p></div><a class="head-action" href="{% if me.is_owner %}/admin{% else %}#{% endif %}">⋮</a></header>
+{% if me.is_owner or me.rank == 'العبيد' %}<a class="slave-group-entry" href="/slave-group"><span>♟</span><div><b>كروب العبيد</b><small>خاص بأعضاء الرتبة فقط</small></div><strong>دخول ›</strong></a>{% endif %}
+<section id="messages" class="messages"><div class="day-pill">اليوم</div>
+<article class="welcome-card"><img src="{{url_for('static',filename='img/logo.svg')}}"><div><b>أهلاً {{me.display_name}}</b><p>المحادثة والألعاب والمسابقات كلها هنا. الرسائل تتحدث تلقائياً.</p></div></article>
+{% for m in messages %}<article class="bubble {% if m.user_id==me.id %}mine{% endif %}" id="m{{m.id}}" data-id="{{m.id}}"><div class="bubble-row"><img src="{{url_for('static',filename='img/'+m.user.avatar+'.svg')}}"><div><div class="bubble-name">{{shown_name(m.user)}} <span>{{m.user.rank}}</span></div><div class="bubble-text">{{m.body}}</div><time>{{m.created_at.strftime('%H:%M')}}</time></div></div></article>{% endfor %}
+{% for g in games %}{% if g.status=='pending' and g.o_user_id==me.id %}<article class="event-card"><div class="event-icon xo">X/O</div><div><b>تحدي X/O جديد</b><p>وصلك تحدي مباشر</p></div><a href="/game/{{g.id}}">فتح</a></article>{% elif g.status=='active' %}<article class="event-card"><div class="event-icon xo">X/O</div><div><b>مباراة X/O جارية</b><p>اللعبة بانتظار دورك</p></div><a href="/game/{{g.id}}">العب</a></article>{% endif %}{% endfor %}<div id="live-events"></div></section>
+<form id="send" class="composer"><button type="button" class="plus" id="gamesBtn">＋</button><input id="body" autocomplete="off" placeholder="اكتب رسالة..." {% if me.is_muted %}disabled{% endif %}><button class="send-btn">↑</button></form>
+<nav class="bottom-nav premium-nav"><a class="nav-item active" href="/chat"><span>●</span><small>الدردشة</small></a><a class="nav-item" href="/games"><span>🎮</span><small>الألعاب</small></a><a class="nav-item store-nav" href="/store"><span>♛</span><small>المتجر</small></a><a class="nav-item" href="/quiz"><span>🏆</span><small>المسابقة</small></a><a class="nav-item" href="/profile"><span>◉</span><small>حسابي</small></a></nav>
+<div class="sheet" id="gameSheet"><div class="sheet-card"><div class="grab"></div><h3>ابدأ تحدياً</h3><div class="quick-games"><a href="/games"><b>🎮 الألعاب</b><small>دز تحدي للكروب</small></a><a href="/quiz"><b>🏆 المسابقة</b><small>أسئلتك الخاصة</small></a></div><button type="button" class="close-sheet">إغلاق</button></div></div>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script><script>
+const myId={{me.id}};
+const box=document.getElementById('messages'), form=document.getElementById('send'), inp=document.getElementById('body'), events=document.getElementById('live-events');
+let last=Math.max(0,...[...document.querySelectorAll('[data-id]')].map(x=>+x.dataset.id));
+function esc(x){const d=document.createElement('div');d.textContent=x??'';return d.innerHTML}
+function add(m){
+ if(document.getElementById('m'+m.id))return;
+ const d=document.createElement('article');d.className='bubble '+(m.user_id===myId?'mine':'');d.id='m'+m.id;d.dataset.id=m.id;
+ d.innerHTML=`<div class="bubble-row"><img src="${m.avatar||'/static/img/avatar1.svg'}"><div><div class="bubble-name">${esc(m.name)} <span>${esc(m.rank)}</span></div><div class="bubble-text">${esc(m.body)}</div><time>${esc(m.time)}</time></div></div>`;
+ box.insertBefore(d,events);last=Math.max(last,+m.id);window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
+}
+function challengeCard(g){
+ if(document.getElementById('tg'+g.id))return;
+ events.insertAdjacentHTML('beforeend',`<article id="tg${g.id}" class="event-card table-event live-challenge"><div class="event-icon">${g.icon||'🎮'}</div><div><b>${esc(g.host)} يتحداكم بـ ${esc(g.label)}</b><p>أول شخص يضغط يدخل مباشرة</p></div><a href="/table-game/${g.id}">تحدي</a></article>`);
+}
+let sock=null;
+try{
+ sock=io();
+ sock.on('new_message',add);
+ sock.on('private_auto_reply',x=>{const d=document.createElement('article');d.className='bubble system';d.innerHTML=`<div class="bubble-row"><img src="/static/img/logo.svg"><div><div class="bubble-name">اب نيو <span>خاص</span></div><div class="bubble-text">${esc(x.text)}</div><time>${esc(x.time)}</time></div></div>`;box.insertBefore(d,events)});
+ sock.on('quiz_live',q=>events.insertAdjacentHTML('beforeend',`<article class="event-card quiz"><div class="event-icon">♛</div><div><b>مسابقة جديدة: ${esc(q.title)}</b><p>انضم الآن · ${esc(q.code)}</p></div><form method="post" action="/quiz/join"><input type="hidden" name="code" value="${esc(q.code)}"><button>دخول</button></form></article>`));
+ sock.on('table_invite',g=>challengeCard({id:g.game_id,icon:g.icon,host:g.host,label:g.label}));
+ sock.on('table_started',g=>document.getElementById('tg'+g.game_id)?.remove());
+ sock.on('table_finished',g=>document.getElementById('tg'+g.game_id)?.remove());
+}catch(e){console.log('socket reconnecting')}
+async function pollMessages(){try{const r=await fetch('/api/messages?after='+last,{cache:'no-store'});if(r.ok)(await r.json()).forEach(add)}catch(e){}setTimeout(pollMessages,1000)}
+async function pollLive(){try{const r=await fetch('/api/live',{cache:'no-store'});if(r.ok){const j=await r.json(),alive=new Set(j.tables.filter(g=>g.status==='lobby').map(g=>'tg'+g.id));document.querySelectorAll('.live-challenge').forEach(e=>{if(!alive.has(e.id))e.remove()});j.tables.filter(g=>g.status==='lobby').forEach(challengeCard)}}catch(e){}setTimeout(pollLive,1000)}
+form.addEventListener('submit',async e=>{
+ e.preventDefault();const v=inp.value.trim();if(!v)return;
+ if(sock&&sock.connected){sock.emit('send_message',{body:v});inp.value='';inp.focus()}
+ else{
+  // fallback so sending still works after temporary Socket.IO trouble
+  try{const r=await fetch('/api/send-message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({body:v})});if(r.ok){inp.value='';inp.focus()}}catch(e){}
+ }
+});
+const sheet=document.getElementById('gameSheet');
+document.getElementById('gamesBtn').addEventListener('click',()=>sheet.classList.add('show'));
+document.querySelector('.close-sheet').addEventListener('click',()=>sheet.classList.remove('show'));
+sheet.addEventListener('click',e=>{if(e.target===sheet)sheet.classList.remove('show')});
+pollMessages();pollLive();setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),100);
+</script>{% endblock %}

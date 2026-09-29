@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% block content %}
+<header class="pro-game-head"><a href="/games" class="game-back">‹</a><div><h1>حيّة ودرج <small>#{{g.id}}</small></h1><p id="roomStatus">لعبة مباشرة</p></div><span class="game-mark">🐍🪜</span></header>
+<section class="snakes-shell">
+ <div class="snakes-top"><div id="players"></div><div class="snakes-dice"><button id="roll" class="primary">🎲 ارمي الزهر</button><b id="die">—</b></div></div>
+ <div class="snakes-board" id="board"></div>
+ <div id="notice" class="snakes-notice">أول لاعب يوصل للمربع 100 يفوز</div>
+ <div id="resultCard" class="result-card" hidden><b id="resultText"></b><button id="rematchBtn" class="primary">↻ إعادة اللعب</button><small id="rematchState"></small></div>
+</section>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+const gid={{g.id}};let cur=null;const board=document.getElementById('board');
+const snakes={99:54,95:75,92:88,74:53,64:60,62:19,49:11,46:25,16:6}, ladders={2:38,7:14,8:31,15:26,21:42,28:84,36:44,51:67,71:91,78:98,87:94};
+function cellXY(n){let row=Math.floor((n-1)/10),pos=(n-1)%10,col=row%2?9-pos:pos;return {row:9-row,col}}
+function build(){let h='';for(let n=100;n>=1;n--){let p=cellXY(n);let cls=snakes[n]?'snake-start':ladders[n]?'ladder-start':'';h+=`<div class="sq ${cls}" style="grid-row:${p.row+1};grid-column:${p.col+1}"><span>${n}</span></div>`}board.innerHTML=h+'<svg class="routes" viewBox="0 0 1000 1000" preserveAspectRatio="none" id="routes"></svg><div id="tokens"></div>';drawRoutes()}
+function center(n){let p=cellXY(n);return {x:p.col*100+50,y:p.row*100+50}}
+function drawRoutes(){let svg=document.getElementById('routes'),h='';for(let [a,b] of Object.entries(ladders)){let A=center(+a),B=center(b);h+=`<line x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" class="ladder-line"/><line x1="${A.x-10}" y1="${A.y}" x2="${B.x-10}" y2="${B.y}" class="ladder-line thin"/>`}for(let [a,b] of Object.entries(snakes)){let A=center(+a),B=center(b),mx=(A.x+B.x)/2+45;h+=`<path d="M${A.x},${A.y} Q${mx},${(A.y+B.y)/2-50} ${B.x},${B.y}" class="snake-line"/>`}svg.innerHTML=h}
+function render(){if(!cur)return;let st=cur.state;document.getElementById('players').innerHTML=cur.players.map((p,i)=>`<span class="snake-player ${st.turn===i?'turn':''}"><i class="token t${i}"></i>${p} · ${st.positions[i]}</span>`).join('');document.getElementById('die').textContent=st.dice||'—';let box=document.getElementById('tokens');box.innerHTML='';st.positions.forEach((n,i)=>{if(!n)return;let p=center(n),el=document.createElement('i');el.className='board-token t'+i;el.style.left=(p.x/10)+'%';el.style.top=(p.y/10)+'%';box.appendChild(el)});document.getElementById('roll').disabled=cur.spectator||st.turn!==cur.you||cur.status!=='active';let rc=document.getElementById('resultCard');if(cur.status==='finished'){rc.hidden=false;document.getElementById('resultText').textContent='الفائز: '+cur.players[st.winner]}else rc.hidden=true}
+async function load(){let r=await fetch('/api/table-game/'+gid,{cache:'no-store'});if(!r.ok)return;cur=await r.json();render()}
+document.getElementById('roll').onclick=async()=>{let b=document.getElementById('die');b.classList.add('rolling');let r=await fetch(`/table-game/${gid}/snakes-roll`,{method:'POST'}),x=await r.json();setTimeout(()=>b.classList.remove('rolling'),500);if(r.ok){let msg=`طلع ${x.die} — تحركت من ${x.from} إلى ${x.to}`;if(x.jump)msg+=x.jump[2]==='ladder'?' 🪜 صعدت درج!':' 🐍 نزلتك الحيّة!';if(x.extra_turn)msg+=' — إلك رمية ثانية';document.getElementById('notice').textContent=msg}load()};
+document.getElementById('rematchBtn').onclick=async()=>{let r=await fetch(`/table-game/${gid}/rematch`,{method:'POST'}),x=await r.json();if(r.ok)document.getElementById('rematchState').textContent=x.started?'بدأت الجولة الجديدة':'بانتظار اللاعب الثاني';load()};
+try{let s=io();s.emit('join_table',{game_id:gid});s.on('table_state',x=>{if(x.game_id===gid)load()})}catch(e){}
+build();load();
+</script>{% endblock %}

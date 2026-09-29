@@ -1,0 +1,15 @@
+AB NEW — Railway 24/7
+1. ارفع المشروع إلى GitHub.
+2. Railway > New Project > Deploy from GitHub Repo.
+3. Settings > Networking > Generate Domain.
+4. أضف Volume واربطه على /data.
+5. Variables:
+   AB_DATA_DIR=/data
+   SECRET_KEY=ضع_نص_طويل_وعشوائي
+6. Deploy.
+
+مهم:
+- Serverless خليه مطفي إذا تريد الخدمة مستمرة.
+- لا تحذف Volume بالتحديثات.
+- هذه النسخة تستخدم Worker واحد حتى SQLite وSocket.IO يبقن متوافقات.
+- قاعدة البيانات الدائمة: /data/ab_new.db

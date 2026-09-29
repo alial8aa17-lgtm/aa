@@ -1,0 +1,10 @@
+{% extends 'base.html' %}{% block content %}
+{% set ap=appearance(me) %}
+<header class="page-head"><a href="/chat">‹</a><div><h1>ملفي الشخصي</h1><p>@{{me.username}}</p></div><span>◉</span></header>
+<section class="profile-hero ultimate-profile">
+ <div class="equipped-avatar">{% if ap.frame %}<img class="avatar-frame" src="{{ap.frame}}">{% endif %}<img class="avatar-main" src="{{ap.avatar}}">{% if ap.crown %}<img class="avatar-crown" src="{{ap.crown}}">{% endif %}</div>
+ <h2>{{me.display_name}}{% if ap.title %} <span class="equipped-title">({{ap.title}})</span>{% endif %}</h2><b>{{me.rank}}</b><p>{{me.points}} نقطة · {{wins}} فوز</p>
+</section>
+<p><a class="primary" style="display:block;text-align:center;text-decoration:none" href="/store">متجر اب نيو · {{me.points}} نقطة</a></p>
+<form method="post" class="admin-card"><h3>اختر صورتك الأساسية</h3><div class="avatar-grid">{% for a in avatars %}<label><input type="radio" name="avatar" value="{{a}}" {% if me.avatar==a %}checked{% endif %}><img src="/static/img/{{a}}.svg"></label>{% endfor %}</div>{% if me.premium_avatar or me.is_owner %}<h3>الصور المميزة</h3><div class="avatar-grid premium">{% for a in premium %}<label><input type="radio" name="avatar" value="{{a}}" {% if me.avatar==a %}checked{% endif %}><img src="/static/img/{{a}}.svg"></label>{% endfor %}</div>{% endif %}<label>نبذة<input name="bio" value="{{me.bio or ''}}" maxlength="140"></label><button class="primary">حفظ الملف</button></form>
+{% endblock %}

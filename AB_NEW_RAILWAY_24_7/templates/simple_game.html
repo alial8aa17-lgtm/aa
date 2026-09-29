@@ -1,0 +1,47 @@
+{% extends 'base.html' %}{% block content %}
+<header class="pro-game-head"><a href="/chat" class="game-back">‹</a><div><h1>{{meta[1]}} {{meta[0]}}</h1><p id="status">جاري التحميل...</p></div><button id="helpBtn" class="game-help">؟</button></header>
+<div id="helpBox" class="game-help-box"><b id="helpTitle"></b><p id="helpText"></p><button id="helpClose">فهمت</button></div>
+<section class="simple-live"><div id="players" class="versus"></div><div id="game"></div><div id="hint" class="game-hint"></div>
+<div id="result" class="result-card" hidden><b id="resultText"></b><button id="rematch" class="primary">↻ إعادة اللعب</button><small id="votes"></small></div></section>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script><script>
+const gid={{g.id}},kind='{{g.kind}}',E=x=>document.getElementById(x);let cur=null,closeTimer=null;
+const labels={rock:'✊ حجر',paper:'✋ ورقة',scissors:'✌️ مقص'};
+const help={
+ snakes:['شلون تلعب؟','إضغط «ارمي الزهر». حجرك يتحرك وحده. إذا وقفت على درج تصعد، وإذا وقفت على رأس حيّة تنزل. أول لاعب يوصل 100 يفوز.'],
+ xo2:['شلون تلعب؟','إنت والخصم تلعبون بالتناوب. الأول X والثاني O. سوّي 3 علامات بخط واحد: أفقي أو عمودي أو مائل حتى تفوز.'],
+ rps:['شلون تلعب؟','اختار حجر أو ورقة أو مقص. اختيارك يبقى مخفي لحد ما يختار الخصم. الحجر يغلب المقص، المقص يغلب الورقة، والورقة تغلب الحجر. أول لاعب يفوز 3 جولات يفوز بالمباراة.'],
+ guess:['شلون تلعب؟','أكو رقم سري من 1 إلى 100. اكتب تخمينك؛ اللعبة تكلك الرقم أعلى أو أوطى. أول واحد يعرف الرقم الصحيح يفوز.'],
+ reaction:['شلون تلعب؟','لا تضغط والزر مكتوب عليه «انتظر». من يتحول أخضر ويكتب «اضغط هسه» اضغط بأسرع وقت. الضغط المبكر ينقص نقطة. أول لاعب يجمع 5 نقاط يفوز.'],
+ colors:['شلون تلعب؟','راح يظهر اسم لون مطلوب. دوس على المربع اللي لونه يطابق الاسم، مو على مجرد كلمة. أول لاعب يجمع 5 نقاط يفوز.'],
+ memory:['شلون تلعب؟','بدورك افتح بطاقتين. إذا نفس الرمز يبقن مفتوحات وتحصل نقطة. إذا مختلفات ينغلقن وينتقل الدور. بعد كشف كل البطاقات يفوز صاحب أكثر نقاط.']
+};
+function msg(x){E('hint').textContent=x||''}
+async function action(data={}){let r=await fetch(`/table-game/${gid}/action`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}),x=await r.json();if(!r.ok){msg(x.error==='turn'?'مو دورك':x.error==='wrong'?'غلط، جرّب بسرعة':'الحركة مو مسموحة')}else if(x.hint)msg(x.hint);load()}
+function snakes(st){let cells='';for(let n=100;n>=1;n--)cells+=`<i class="${st.positions.includes(n)?'has-token':''}">${n}${st.positions[0]===n?' 🔴':''}${st.positions[1]===n?' 🟡':''}</i>`;return `<div class="mini-board">${cells}</div><button class="big-action" ${st.turn!==cur.you?'disabled':''}>🎲 ارمي الزهر ${st.dice?'('+st.dice+')':''}</button>`}
+function render(){let st=cur.state;E('players').innerHTML=cur.players.map((p,i)=>`<b class="${st.turn===i?'active':''}">${p}</b>`).join('<span>VS</span>');E('status').textContent=cur.status==='lobby'?'بانتظار خصم — التحدي موجود بالكروب':'مباراة مباشرة';
+ let h='';
+ if(cur.status==='lobby')h='<div class="waiting-orb">⌛<b>بانتظار أول شخص يضغط التحدي</b><small>ما يحتاج قبول ثاني</small></div>';
+ else if(kind==='snakes')h=snakes(st);
+ else if(kind==='xo2')h=`<div class="xo-board">${[0,1,2,3,4,5,6,7,8].map(i=>`<button data-cell="${i}" ${st.board[i]!=='-'?'disabled':''}>${st.board[i]==='-'?'':st.board[i]}</button>`).join('')}</div>`;
+ else if(kind==='rps')h=`<div class="scoreline">${st.scores[0]} - ${st.scores[1]}</div><div class="choice-row">${['rock','paper','scissors'].map(x=>`<button data-choice="${x}">${labels[x]}</button>`).join('')}</div><small>اختيارك يبقى سري لحد ما يختار الخصم</small>`;
+ else if(kind==='guess')h=`<div class="guess-box"><b>؟</b><p>خمن الرقم من 1 إلى 100</p><form id="guessForm"><input id="guessN" type="number" min="1" max="100" required><button>خمن</button></form></div>`;
+ else if(kind==='reaction'){let wait=Math.max(0,(st.ready_at-Date.now()/1000));h=`<div class="reaction-box"><div class="scoreline">${st.scores[0]} - ${st.scores[1]}</div><button id="reactBtn" class="${wait<=0?'go':''}">${wait<=0?'اضغط هسه!':'انتظر...'}</button></div>`;if(wait>0)setTimeout(load,Math.min(wait*1000+80,1000))}
+ else if(kind==='colors'){const sw=['red','blue','green','yellow'];h=`<div class="scoreline">${st.scores[0]} - ${st.scores[1]}</div><div class="color-question"><small>اللون المطلوب</small><b>${st.names[st.target_name??st.round%4]}</b><p>اختار المربع المطابق للون</p></div><div class="color-grid real-colors">${st.names.map((name,i)=>`<button data-color="${i}" class="swatch sw-${sw[i]}"><i></i><span>${name}</span></button>`).join('')}</div>`}
+ else if(kind==='memory')h=`<div class="scoreline">${st.scores[0]} - ${st.scores[1]}</div><div class="memory-grid">${st.cards.map((x,i)=>`<button data-memory="${i}" ${x?'class="open"':''}>${x||'?'}</button>`).join('')}</div>`;
+ E('game').innerHTML=h;
+ if(kind==='snakes'&&cur.status==='active')document.querySelector('.big-action').onclick=()=>action();
+ document.querySelectorAll('[data-cell]').forEach(b=>b.onclick=()=>action({cell:+b.dataset.cell}));
+ document.querySelectorAll('[data-choice]').forEach(b=>b.onclick=()=>action({choice:b.dataset.choice}));
+ let gf=E('guessForm');if(gf)gf.onsubmit=e=>{e.preventDefault();action({number:+E('guessN').value});E('guessN').value=''};
+ let rb=E('reactBtn');if(rb)rb.onclick=()=>action();
+ document.querySelectorAll('[data-color]').forEach(b=>b.onclick=()=>action({choice:+b.dataset.color}));
+ document.querySelectorAll('[data-memory]').forEach(b=>b.onclick=()=>action({cell:+b.dataset.memory}));
+ if(kind==='memory'&&st.open?.length===2&&!closeTimer){closeTimer=setTimeout(async()=>{await fetch(`/table-game/${gid}/memory-close`,{method:'POST'});closeTimer=null;load()},900)}
+ let done=cur.status==='finished';E('result').hidden=!done;if(done)E('resultText').textContent=st.winner===null||st.winner===undefined?'تعادل':'الفائز: '+cur.players[st.winner]
+}
+async function load(){let r=await fetch('/api/table-game/'+gid,{cache:'no-store'});if(!r.ok)return;cur=await r.json();render()}
+E('rematch').onclick=async()=>{let r=await fetch(`/table-game/${gid}/rematch`,{method:'POST'}),x=await r.json();E('votes').textContent=x.started?'بدأت جولة جديدة':'بانتظار موافقة الخصم';load()};
+E('helpTitle').textContent=help[kind][0];E('helpText').textContent=help[kind][1];
+E('helpBtn').onclick=()=>E('helpBox').classList.add('show');E('helpClose').onclick=()=>E('helpBox').classList.remove('show');
+try{let s=io();s.emit('join_table',{game_id:gid});s.on('table_state',x=>{if(x.game_id===gid)load()})}catch(e){}load();
+</script>{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}كروب العبيد{% endblock %}
+{% block content %}
+<div class="slave-room">
+ <header class="chat-head slave-head">
+  <a class="back-btn" href="/chat">‹</a>
+  <div class="slave-room-icon">♟</div>
+  <div><h1>كروب العبيد</h1><small><i class="online"></i> كروب خاص ومشفّر بالصلاحيات</small></div>
+ </header>
+ <div class="privacy-ribbon">🔒 محتوى هذا الكروب لا يُرسل إلا للأعضاء المسموح لهم</div>
+ <main id="slaveMessages" class="messages slave-messages">
+ {% for m in messages %}
+  <article class="bubble {% if m.user_id==me.id %}mine{% endif %}">
+   <img src="{{avatar_url(m.user)}}" alt="">
+   <div><b class="bubble-name">{{shown_name(m.user)}} <span>{{m.user.rank}}</span></b>
+   <p>{{m.body}}</p><time>{{m.created_at.strftime('%H:%M')}}</time></div>
+  </article>
+ {% endfor %}
+ </main>
+ <form id="slaveForm" class="composer">
+  <input id="slaveInput" maxlength="1000" autocomplete="off" placeholder="اكتب رسالة للكروب الخاص...">
+  <button class="send-btn" type="submit">➤</button>
+ </form>
+</div>
+<script>
+const box=document.getElementById('slaveMessages'), form=document.getElementById('slaveForm'), input=document.getElementById('slaveInput');
+function esc(x){let d=document.createElement('div');d.textContent=x;return d.innerHTML}
+function add(m){box.insertAdjacentHTML('beforeend',`<article class="bubble ${m.user_id=={{me.id}}?'mine':''}"><img src="${esc(m.avatar||'/static/img/logo.svg')}"><div><b class="bubble-name">${esc(m.name)} <span>${esc(m.rank||'')}</span></b><p>${esc(m.body)}</p><time>${esc(m.time)}</time></div></article>`);box.scrollTop=box.scrollHeight}
+try{
+ const sock=io(); sock.emit('join_slave_group');
+ sock.on('new_slave_message',add);
+ form.onsubmit=e=>{e.preventDefault();let body=input.value.trim();if(!body)return;sock.emit('send_slave_message',{body});input.value='';input.focus()}
+}catch(e){form.onsubmit=e=>e.preventDefault()}
+box.scrollTop=box.scrollHeight;
+</script>
+{% endblock %}
